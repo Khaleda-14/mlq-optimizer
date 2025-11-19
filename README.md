@@ -2,11 +2,11 @@
 
 MLQ Optimizer Desktop Application Project structure:
 
-mlq-optimizer/
-    main.py              - PyQt5 desktop application
-    model_wrapper.py     - Model loader and prediction wrapper
-    requirements.txt     - Python dependencies
-    best_model_3_Meta_raw_data.keras             - (optional) place your Keras model file here before building
+- mlq-optimizer/
+    - main.py              - PyQt5 desktop application
+    - model_wrapper.py     - Model loader and prediction wrapper
+    - requirements.txt     - Python dependencies
+    - best_model_3_Meta_raw_data.keras             - (optional) place your Keras model file here before building
     
 
 Development:
