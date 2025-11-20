@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib.patches import Polygon as MPolygon, PathPatch
+from matplotlib.patches import Polygon as MPolygon, PathPatch, Rectangle
 from matplotlib.path import Path
 from model_wrapper import MLQModel
 
@@ -15,23 +15,16 @@ SCALER_X_PATH = r"D:\mlq_desktop\scaler_x.pkl"
 SCALER_Y_PATH = r"D:\mlq_desktop\scaler_y.pkl"
 
 def optimize_compute(model, freq, R, Lg, Ll, topk_percent=10):
-    # User's optimization routine: 50 Tw samples and top-k threshold
     Tw_vals = np.linspace(0.1, 10.0, 100)
-    # Vectorized prediction: model.predict_q to handle broadcasting
     Q_vals = model.predict_q(Tw_vals, freq, R, Lg, Ll)
-
-    # Find best
     idx_max = int(np.nanargmax(Q_vals))
     Q_max = float(Q_vals[idx_max])
     best_tw = float(Tw_vals[idx_max])
-
     df = pd.DataFrame({'Tw [mm]': Tw_vals, 'Q': Q_vals})
     threshold = Q_max * (1 - float(topk_percent) / 100.0)
     top_k_df = df[df['Q'] >= threshold].copy()
-
     result_text = f"Best Design:\nTw = {best_tw:.4f} mm\nMax Q = {Q_max:.4f}\n"
     result_text += f"\nTop-{float(topk_percent):.0f}% Region Candidates: {len(top_k_df)}\n"
-    # include a short preview (first few rows)
     result_text += top_k_df.head().to_string(index=False)
 
     return {
@@ -42,29 +35,22 @@ def optimize_compute(model, freq, R, Lg, Ll, topk_percent=10):
         'top_k_df': top_k_df,
         'result_text': result_text
     }
-    
 
-# Headless mode: save plots to PNG and print results
 def run_headless(args):
     print('Running in headless mode (no GUI)')
     print('Python:', sys.executable)
     print('Platform:', platform.platform())
     model = MLQModel(MODEL_PATH, SCALER_X_PATH, SCALER_Y_PATH)
-
     freq = float(args.freq)
     R = float(args.R)
     Lg = float(args.Lg)
     Ll = float(args.Ll)
     topk = int(args.topk)
-
     res = optimize_compute(model, freq, R, Lg, Ll, topk)
-
     print(res['result_text'])
-
-    # Ensure Agg backend (no GUI)
     matplotlib.use('Agg')
 
-    # Plot 1: plot top-k region 
+    # Plot 1
     fig1, ax = plt.subplots(figsize=(6, 4), dpi=150)
     top_k_df = res['top_k_df']
     if not top_k_df.empty:
@@ -80,7 +66,7 @@ def run_headless(args):
     fig1.savefig(out1, bbox_inches='tight')
     plt.close(fig1)
 
-    # Plot 2: Q vs Frequency at best Tw
+    # Plot 2
     fig2, ax2 = plt.subplots(figsize=(6, 4), dpi=150)
     freq_range = np.linspace(100.0, 800.0, 800)
     Q_f = model.predict_q(res['best_tw'], freq_range, R, Lg, Ll)
@@ -110,49 +96,31 @@ def run_headless(args):
     print(' -', out2)
     print(' -', out3)
 
-
 def render_coil_axes(ax, R, Lg, Ll, Tw):
     """coil geometry: complete circle on top + two separate vertical legs extending down.
-   
     """
-    # Leg positions: symmetric about x=0, separated by gap Lg
     x_left = -Lg / 2.0
     x_right = Lg / 2.0
-    # Build coil path:
-    # 1. Complete circle (centered at origin with radius R)
     n_circle = 400
     theta_circle = np.linspace(0, 2*np.pi, n_circle)
     circle_x = R * np.cos(theta_circle)
     circle_y = R * np.sin(theta_circle)
-
-    # Notch and leg geometry 
-    # notch = max(R*0.15, Tw*10)
-    # leg_w = max(Tw*30, 2.5)
     notch_h = max(R * 0.15, Tw * 10.0)
     leg_w = max(Tw * 30.0, 2.5)
-
-    # Y coordinate where legs attach to the circle (approx)
     if abs(x_left) < R:
         y_attach = -np.sqrt(max(R**2 - x_left**2, 0.0))
     else:
         y_attach = -R
-
     notch_top = y_attach
     notch_bottom = notch_top - notch_h
-
     pad = 0.2
     mask = ~((circle_x >= (x_left - leg_w/2.0 - pad)) & (circle_x <= (x_right + leg_w/2.0 + pad)) & (circle_y <= notch_top))
-
     circle_x_filtered = circle_x[mask]
     circle_y_filtered = circle_y[mask]
-
-    # filtered circle outline
     line_width = max(Tw * 30, 2.0)
     ax.plot(circle_x_filtered, circle_y_filtered, color='#333333', linewidth=line_width, solid_capstyle='round',
             solid_joinstyle='round', zorder=2)
 
-    # legs as filled rectangles whose TOP aligns with notch_top
-    from matplotlib.patches import Rectangle
     left_rect = Rectangle((x_left - leg_w/2.0, notch_top - Ll), leg_w, Ll, facecolor='#333333', edgecolor='none', zorder=2)
     right_rect = Rectangle((x_right - leg_w/2.0, notch_top - Ll), leg_w, Ll, facecolor='#333333', edgecolor='none', zorder=2)
     ax.add_patch(left_rect)
@@ -214,7 +182,6 @@ def run_gui(args):
         print('Failed to import PyQt5/Qt backends:', e)
         raise
     
-    # Force platform plugin
     QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)
     QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
 
@@ -484,12 +451,6 @@ if __name__ == '__main__':
             run_gui(args)
         except Exception as e:
             print(f'ERROR: GUI failed to start: {e}')
-            print('This typically means:')
-            print('  - You are running on a headless/remote environment without a display')
-            print('  - Qt platform plugin is missing or incompatible')
-            print('')
-            print('To run in headless mode and save plots instead, use:')
-            print('  python main.py --nogui')
             import traceback
             traceback.print_exc()
             sys.exit(1)
