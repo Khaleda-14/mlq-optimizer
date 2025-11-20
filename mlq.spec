@@ -3,7 +3,6 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 block_cipher = None
 
-# Exclude problematic modules that cause subprocess crashes
 excludes = [
     'onnxscript',
     'onnx',
@@ -15,7 +14,6 @@ excludes = [
     'pandas.tests',
 ]
 
-# Only collect essential modules to avoid bloat and crashes
 hiddenimports = [
     'tensorflow',
     'keras',
