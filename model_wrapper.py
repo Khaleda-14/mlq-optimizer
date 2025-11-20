@@ -15,7 +15,7 @@ class MLQModel:
         self.model_path = model_path
         self.scaler_x = None
         self.scaler_y = None
-        # Load scalers if provided
+        # Load scalers 
         if scaler_x_path and os.path.exists(scaler_x_path):
             try:
                 self.scaler_x = joblib.load(scaler_x_path)
